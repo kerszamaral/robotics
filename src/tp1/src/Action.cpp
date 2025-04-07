@@ -1,6 +1,10 @@
 #include "Action.h"
 
 #include "Utils.h"
+#include <algorithm>
+#include <iostream>
+#include <iterator>
+#include <ostream>
 
 Action::Action()
 {
@@ -10,10 +14,33 @@ Action::Action()
 
 void Action::avoidObstacles(std::vector<float> lasers, std::vector<float> sonars)
 {
-    // TODO: COMPLETAR FUNCAO
+    (void) sonars;
+    constexpr auto middle = 2;
+    constexpr auto middle_offset = 5;
+    const auto laser_middle = lasers.size()/middle;
+    const auto start_front_laser = laser_middle - (lasers.size()/middle_offset);
+    const auto min_front_dist = *std::min_element(lasers.begin()+start_front_laser, lasers.end()-start_front_laser);
 
 
+    constexpr auto dist_threshold = 1.2f;
+    constexpr auto wander_lin_velocity = 0.3f;
+    constexpr auto avoid_ang_velocity = 0.1f;
+    constexpr auto side_threshold = 0.01f;
+    if (min_front_dist < dist_threshold)
+    {
+        linVel = 0.0f;
+        const auto &left_min = *std::min_element(lasers.begin(), lasers.begin()+laser_middle);
+        const auto &right_min = *std::min_element(lasers.begin()+laser_middle, lasers.end());
 
+        const auto ang_size = right_min - left_min > side_threshold ? -1 : 1;
+        angVel = ang_size * avoid_ang_velocity;
+        // std::cout << "Min Dist: " << min_front_dist << std::endl;
+    }
+    else
+    {
+        linVel = wander_lin_velocity;
+        angVel = 0.0f;
+    }
 }
 
 void Action::keepAsFarthestAsPossibleFromWalls(std::vector<float> lasers, std::vector<float> sonars)
