@@ -55,7 +55,7 @@ void Action::keepAsFarthestAsPossibleFromWalls(std::vector<float> lasers, std::v
     
     constexpr auto tp = 0.2f;
     constexpr auto ti = 0.0012f;
-    constexpr auto td = 3.0f;
+    constexpr auto td = 3.5f;
 
     constexpr auto parts = 3;
     const auto laser_part = lasers.size()/parts;
