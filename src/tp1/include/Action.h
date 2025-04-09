@@ -2,6 +2,7 @@
 #define ACTION_H
 
 #include <vector>
+#include <array>
 
 enum MotionMode {MANUAL, WANDER, FARFROMWALLS};
 enum MovingDirection {STOP, FRONT, BACK, LEFT, RIGHT, AUTO};
@@ -30,8 +31,21 @@ public:
 private:
     float linVel;
     float angVel;
+
     float cte_sum;
     float cte_last;
+
+    std::array<float, 3> t;
+    
+    int twiddle_curr;
+    float twiddle_best_error;
+    std::array<float, 3> twiddle_dp;
+    int twiddle_step;
+    float twiddle_total_error;
+
+    int twiddle_last_change;
+
+    void twiddlePID(float cte);
 };
 
 #endif // ACTION_H
