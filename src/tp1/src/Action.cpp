@@ -2,14 +2,18 @@
 
 #include "Utils.h"
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <iterator>
+#include <numeric>
 #include <ostream>
 
 Action::Action()
 {
     linVel = 0.0;
     angVel = 0.0;
+    cte_sum = 0.0f;
+    cte_last = 0.0f;
 }
 
 void Action::avoidObstacles(std::vector<float> lasers, std::vector<float> sonars)
@@ -45,12 +49,49 @@ void Action::avoidObstacles(std::vector<float> lasers, std::vector<float> sonars
 
 void Action::keepAsFarthestAsPossibleFromWalls(std::vector<float> lasers, std::vector<float> sonars)
 {
-    // TODO: COMPLETAR FUNCAO
+    (void) sonars;
+    constexpr auto keep_lin_velocity = 0.3f;
+    linVel = keep_lin_velocity; // Keep linear velocity constant
+    
+    constexpr auto tp = 0.2f;
+    constexpr auto ti = 0.0012f;
+    constexpr auto td = 3.0f;
+
+    constexpr auto parts = 3;
+    const auto laser_part = lasers.size()/parts;
+
+    const auto &left_min = *std::min_element(lasers.begin(), lasers.begin()+laser_part);
+    const auto &right_min = *std::min_element(lasers.end()-laser_part, lasers.end());
+    const auto &front_min = *std::min_element(lasers.begin()+laser_part, lasers.end()-laser_part);
 
 
+    (void) front_min;
+    constexpr auto distance = 0.5f;
+    const auto cross_track_error = right_min - left_min + distance;
 
+    // P
+    constexpr auto bound = 1.0f;
+    const auto cte = std::clamp(cross_track_error, -bound, bound);
+    const auto P = tp*cte;
 
+    // I
+    cte_sum += cte;
+    const auto I = ti*cte_sum;
 
+    //D
+    const auto &deriv_of_cte = cte - cte_last;
+    const auto D = td*deriv_of_cte;
+    cte_last = cte;
+
+    const auto new_angle = -(P + I + D);
+
+    angVel = new_angle;
+
+    std::cout 
+        << "L: " << left_min << " R: " << right_min << std::endl
+        << "CTE: " << cte << std::endl
+        << "P " << P << " I " << I << " D " << D << std::endl
+        << "new_angle: " << new_angle << std::endl;
 }
 
 void Action::manualRobotMotion(MovingDirection direction)

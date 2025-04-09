@@ -30,6 +30,8 @@ public:
 private:
     float linVel;
     float angVel;
+    float cte_sum;
+    float cte_last;
 };
 
 #endif // ACTION_H
