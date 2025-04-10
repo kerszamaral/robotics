@@ -8,56 +8,65 @@
 #include <numeric>
 #include <ostream>
 
-static constexpr auto p = 0;
-static constexpr auto i = 1;
-static constexpr auto d = 2;
-
-static constexpr auto twiddle_start = 0.1f;
-
 Action::Action()
 {
     linVel = 0.0;
     angVel = 0.0;
     cte_sum = 0.0f;
     cte_last = 0.0f;
+    
+    tp = 0.2f;
+    ti = 0.0012f;
+    td = 3.5f;
 
-    t[p] = 0.2f;
-    t[i] = 0.0012f;
-    t[d] = 3.5f;
+    twiddle = Twiddler(tp, ti, td);
+}
 
-    twiddle_curr = p;
-    twiddle_best_error = std::reduce(t.begin(), t.end());
-    twiddle_dp = {twiddle_start, twiddle_start, twiddle_start};
-    twiddle_step = 0;
-    twiddle_total_error = 0.0f;
+static constexpr auto twiddle_start = 0.1f;
+
+Action::Twiddler::Twiddler(const float tp, const float ti, const float td)
+{
+    param_idx = TWIDDLE_P;
+    best_error = std::numeric_limits<decltype(best_error)>::max();
+    potential = {twiddle_start*tp, twiddle_start*ti, twiddle_start*td};
+    curr_step = TWIDDLE_UP;
+    total_error = 0.0f;
+    last_change = 0;
 }
 
 void Action::avoidObstacles(std::vector<float> lasers, std::vector<float> sonars)
 {
     (void) sonars;
-    constexpr auto middle = 2;
-    constexpr auto middle_offset = 5;
+    static constexpr auto middle = 2;
+    static constexpr auto middle_offset = 5;
+
+    // Break the lasers into parts
     const auto laser_middle = lasers.size()/middle;
     const auto start_front_laser = laser_middle - (lasers.size()/middle_offset);
+    // Get the minimum distance in the front cone
     const auto min_front_dist = *std::min_element(lasers.begin()+start_front_laser, lasers.end()-start_front_laser);
 
 
-    constexpr auto dist_threshold = 1.2f;
-    constexpr auto wander_lin_velocity = 0.3f;
-    constexpr auto avoid_ang_velocity = 0.1f;
-    constexpr auto side_threshold = 0.01f;
+    static constexpr auto dist_threshold = 1.2f;
+    static constexpr auto wander_lin_velocity = 0.3f;
+    static constexpr auto avoid_ang_velocity = 0.1f;
+    static constexpr auto side_threshold = 0.01f;
+    // If the minimum distance is below the threshold, we need to avoid
     if (min_front_dist < dist_threshold)
     {
         linVel = 0.0f;
+        // Get the minimum distance in the left and right cones
         const auto &left_min = *std::min_element(lasers.begin(), lasers.begin()+laser_middle);
         const auto &right_min = *std::min_element(lasers.begin()+laser_middle, lasers.end());
 
+        // Decide the direction to turn
         const auto ang_size = right_min - left_min > side_threshold ? -1 : 1;
         angVel = ang_size * avoid_ang_velocity;
         // std::cout << "Min Dist: " << min_front_dist << std::endl;
     }
     else
     {
+        // If the distance is above the threshold, we can wander
         linVel = wander_lin_velocity;
         angVel = 0.0f;
     }
@@ -66,28 +75,29 @@ void Action::avoidObstacles(std::vector<float> lasers, std::vector<float> sonars
 void Action::keepAsFarthestAsPossibleFromWalls(std::vector<float> lasers, std::vector<float> sonars)
 {
     (void) sonars;
-    constexpr auto keep_lin_velocity = 0.3f;
+    static constexpr auto keep_lin_velocity = 0.3f;
     linVel = keep_lin_velocity; // Keep linear velocity constant
 
     constexpr auto parts = 3;
     const auto laser_part = lasers.size()/parts;
 
+    // Get the minimum distance in the left and right cones
     const auto &left_min = *std::min_element(lasers.begin(), lasers.begin()+laser_part);
     const auto &right_min = *std::min_element(lasers.end()-laser_part, lasers.end());
+
     const auto &front_min = *std::min_element(lasers.begin()+laser_part, lasers.end()-laser_part);
-
-
     (void) front_min;
+
+
+    // Calculate the cross track error, account for the distance between the lasers
     constexpr auto distance = 0.5f;
     const auto cross_track_error = right_min - left_min + distance;
 
-    const auto &tp = t[p];
-    const auto &ti = t[i];
-    const auto &td = t[d];
-
-    // P
+    // Clamp the cross track error to the range [-1, 1], so we dont get too big values
     constexpr auto bound = 1.0f;
     const auto cte = std::clamp(cross_track_error, -bound, bound);
+
+    // P
     const auto P = tp*cte;
 
     // I
@@ -99,75 +109,86 @@ void Action::keepAsFarthestAsPossibleFromWalls(std::vector<float> lasers, std::v
     const auto D = td*deriv_of_cte;
     cte_last = cte;
 
-    const auto new_angle = -(P + I + D);
+    // Calculate the new angle based on the PID
+    const auto &PID = -(P + I + D);
 
-    angVel = new_angle;
+    angVel = PID;
 
+    // Twiddle the PID parameters
+    twiddle.twiddlePID(cte, tp, ti, td);
 
-    twiddlePID(cte);
-
-    std::cout 
-        << "L: " << left_min << " R: " << right_min << std::endl
-        << "CTE: " << cte << std::endl
-        << "P " << P << " I " << I << " D " << D << std::endl
-        << "TP: " << tp << " TI: " << ti << " TD: " << td << std::endl
-        << "new_angle: " << new_angle << std::endl;
+    constexpr auto SHOW_DEBUG = true;
+    if constexpr (SHOW_DEBUG)
+    {
+        std::cout 
+            << "L: " << left_min << " R: " << right_min << "\n"
+            << "CTE: " << cte << "\n"
+            << "P " << P << " I " << I << " D " << D << "\n"
+            << "TP: " << tp << " TI: " << ti << " TD: " << td << "\n"
+            << "PP: " << twiddle.get_pp() << " PI: " << twiddle.get_pi() << " PD: " << twiddle.get_pd() << "\n"
+            << "PID: " << PID << std::endl;
+    }
 }
 
 
-void Action::twiddlePID(const float cte)
+void Action::Twiddler::twiddlePID(const float cte, float &tp, float &ti, float &td)
 {
-    constexpr auto twiddle_change_steps = 200;
-
-    if (twiddle_last_change < twiddle_change_steps)
+    // If all potential values are below the threshold, stop twiddling
+    static constexpr auto potential_threshold = 0.00001f;
+    const auto &potential_sum = std::reduce(potential.begin(), potential.end());
+    if (potential_sum < potential_threshold)
     {
-        twiddle_total_error += std::pow(cte, 2);
-        ++twiddle_last_change;
-        return;
-    }
-    twiddle_last_change = 0;
-
-
-    // Twiddle algorithm to tune PID parameters
-    const auto sum = std::reduce(t.begin(), t.end());
-
-    constexpr auto threshold = 0.00002f;
-
-    if (sum < threshold)
-    {
-        std::cout << "Twiddle finished" << std::endl;
         return;
     }
 
-    const auto &err = twiddle_total_error;
-    if (err < twiddle_best_error)
+    // We dont want to twiddle every iteration, so we count and sum the errors
+    static constexpr auto steps_until_recalc = 20;
+    if (last_change < steps_until_recalc)
     {
-        twiddle_best_error = err;
-        twiddle_dp[twiddle_curr] *= 1.1f;
-        twiddle_step = 0;
+        total_error += std::pow(cte, 2);
+        ++last_change;
+        return;
     }
+    last_change = 0;
 
-    if (twiddle_step == 0)
+
+    const auto &err = total_error;
+    // If the error is better tha the current best
+    if (err < best_error)
     {
-        t[twiddle_curr] += twiddle_dp[twiddle_curr];
-
-        twiddle_step = 1;
-    } else if (twiddle_step == 1)
-    {
-        t[twiddle_curr] -= 2 * twiddle_dp[twiddle_curr];
-
-        twiddle_step = 2;
-    } else if (twiddle_step == 2)
-    {
-        t[twiddle_curr] += twiddle_dp[twiddle_curr];
-        twiddle_dp[twiddle_curr] *= 0.9f;
-
-        twiddle_step = 0;
-
-        twiddle_curr = (twiddle_curr + 1) % t.size();
+        // Save the best error and increase the potential, also reset the steps
+        best_error = err;
+        potential[param_idx] *= 1.1f;
+        curr_step = TWIDDLE_UP;
     }
+    total_error = 0.0f;
 
-    twiddle_total_error = 0.0f;
+    // Get the current parameter to twiddle
+    auto &curr_param =   param_idx == TWIDDLE_P ? tp 
+                                : param_idx == TWIDDLE_I ? ti
+                                : td;
+
+    switch (curr_step)
+    {
+    case TWIDDLE_UP:
+        // Increase the parameter based on the potential
+        curr_param += potential[param_idx];
+        curr_step = TWIDDLE_DOWN;
+        break;
+    case TWIDDLE_DOWN:
+        // Subtracts the potential from the parameter, 2x because we remove the addition above
+        curr_param -= 2 * potential[param_idx];
+        curr_step = TWIDDLE_REDUCE;
+        break;
+    case TWIDDLE_REDUCE:
+        // The error is worse, so we reset the parameter back and reduce the potential
+        curr_param += potential[param_idx];
+        potential[param_idx] *= 0.9f;
+        curr_step = TWIDDLE_UP;
+        // Also go to the next parameter, wrapping around
+        param_idx = static_cast<TwiddleParams>((param_idx + 1) % TWIDDLE_COUNT);
+        break;
+    }
 }
 
 void Action::manualRobotMotion(MovingDirection direction)
