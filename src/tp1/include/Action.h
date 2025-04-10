@@ -35,17 +35,47 @@ private:
     float cte_sum;
     float cte_last;
 
-    std::array<float, 3> t;
-    
-    int twiddle_curr;
-    float twiddle_best_error;
-    std::array<float, 3> twiddle_dp;
-    int twiddle_step;
-    float twiddle_total_error;
+    float tp;
+    float ti;
+    float td;
 
-    int twiddle_last_change;
+    class Twiddler
+    {
+        enum TwiddleParams
+        {
+            TWIDDLE_P = 0,
+            TWIDDLE_I = 1,
+            TWIDDLE_D = 2,
+            TWIDDLE_COUNT
+        };
+        TwiddleParams param_idx;
 
-    void twiddlePID(float cte);
+        float best_error;
+        std::array<float, TWIDDLE_COUNT> potential;
+
+        enum TwiddleSteps
+        {
+            TWIDDLE_UP,
+            TWIDDLE_DOWN,
+            TWIDDLE_REDUCE
+        };
+        TwiddleSteps curr_step;
+
+        float total_error;
+
+        int last_change;
+
+    public:
+        Twiddler() = default;
+        Twiddler(const float tp, const float ti, const float td);
+        void twiddlePID(const float cte, float &tp, float &ti, float &td);
+
+        float get_pp() const { return potential[TWIDDLE_P]; }
+        float get_pi() const { return potential[TWIDDLE_I]; }
+        float get_pd() const { return potential[TWIDDLE_D]; }
+    };
+
+    Twiddler twiddle;
 };
 
 #endif // ACTION_H
