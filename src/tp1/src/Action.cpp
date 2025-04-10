@@ -72,21 +72,57 @@ void Action::avoidObstacles(std::vector<float> lasers, std::vector<float> sonars
     }
 }
 
+// Gotten from https://tfetimes.com/c-map-range/ 
+template<typename tVal>
+tVal map_value(std::pair<tVal,tVal> a, std::pair<tVal, tVal> b, tVal inVal)
+{
+	tVal inValNorm = inVal - a.first;
+	tVal aUpperNorm = a.second - a.first;
+	tVal normPosition = inValNorm / aUpperNorm;
+
+	tVal bUpperNorm = b.second - b.first;
+	tVal bValNorm = normPosition * bUpperNorm;
+	tVal outVal = b.first + bValNorm;
+
+	return outVal;
+}
+
 void Action::keepAsFarthestAsPossibleFromWalls(std::vector<float> lasers, std::vector<float> sonars)
 {
     (void) sonars;
-    static constexpr auto keep_lin_velocity = 0.3f;
-    linVel = keep_lin_velocity; // Keep linear velocity constant
-
+    
     constexpr auto parts = 3;
     const auto laser_part = lasers.size()/parts;
+    
+    static constexpr auto keep_lin_velocity = 0.3f;
+    static constexpr auto INTERP_VELOCITY = true;
+
+    // Get the minimum distance in the front cone
+    const auto &front_min = *std::min_element(lasers.begin()+laser_part, lasers.end()-laser_part);
+    if constexpr (INTERP_VELOCITY)
+    {
+        static constexpr auto front_threshold = 0.9f;
+        static constexpr auto min_front_threshold = 0.6f;
+        
+        // If distance is above the front threshold, we can keep the linear velocity
+        // If distance is below the front threshold, we need to slow down
+        // If distance is below the min front threshold, we need to stop
+        const auto &mapped_value = map_value(
+            std::make_pair(front_threshold, min_front_threshold), // Input range
+            std::make_pair(keep_lin_velocity, 0.0f), // Output range
+            front_min // Input value
+        );
+        // Clamp the mapped value to the range [0, keep_lin_velocity]
+        linVel = std::clamp(mapped_value, 0.0f, keep_lin_velocity);
+    }
+    else
+    {
+        linVel = keep_lin_velocity; // Keep linear velocity constant
+    }
 
     // Get the minimum distance in the left and right cones
     const auto &left_min = *std::min_element(lasers.begin(), lasers.begin()+laser_part);
     const auto &right_min = *std::min_element(lasers.end()-laser_part, lasers.end());
-
-    const auto &front_min = *std::min_element(lasers.begin()+laser_part, lasers.end()-laser_part);
-    (void) front_min;
 
 
     // Calculate the cross track error, account for the distance between the lasers
@@ -120,7 +156,9 @@ void Action::keepAsFarthestAsPossibleFromWalls(std::vector<float> lasers, std::v
     constexpr auto SHOW_DEBUG = true;
     if constexpr (SHOW_DEBUG)
     {
-        std::cout 
+        std::cout
+            << "PID Debug: \n"
+            << "F: " << front_min << " LinVel: " << linVel << "\n"
             << "L: " << left_min << " R: " << right_min << "\n"
             << "CTE: " << cte << "\n"
             << "P " << P << " I " << I << " D " << D << "\n"
