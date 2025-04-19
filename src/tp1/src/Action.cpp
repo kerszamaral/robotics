@@ -8,6 +8,9 @@
 #include <numeric>
 #include <ostream>
 
+/* -----------------------------------------
+    * Modified by Ian Kersz Amaral - 00338368 - 2025/1
+   ----------------------------------------- */
 Action::Action()
 {
     linVel = 0.0;

@@ -4,6 +4,10 @@
 #include <vector>
 #include <array>
 
+/* -----------------------------------------
+    * Modified by Ian Kersz Amaral - 00338368 - 2025/1
+   ----------------------------------------- */
+
 enum MotionMode {MANUAL, WANDER, FARFROMWALLS};
 enum MovingDirection {STOP, FRONT, BACK, LEFT, RIGHT, AUTO};
 
