@@ -85,8 +85,50 @@ nav_msgs::msg::OccupancyGrid& Perception::updateMapLaserWithLogOdds(const std::v
     // importante lembrar de converter o valor de log-odds para OccupancyGrid data (que vai de 0 a 100)
     // Dica: converter primeiro para probabilidades usando a funcao getLikelihoodFromLogOdds() e depois multiplicar por 100
 
+    const auto logOddsOccupied = getLogOddsFromLikelihood(0.8);
+    const auto logOddsFree = getLogOddsFromLikelihood(0.2);
+    
+    const auto angleTolerance = lambda_phi / 2.0;
+    const float distTolerance = lambda_r / 2.0;
 
+    for (int u = rx - maxRangeInt; u < rx + maxRangeInt; u++)
+    {
+        for (int v = ry - maxRangeInt; v < ry + maxRangeInt; v++)
+        {
+            const auto i = getCellIndexFromXY(u, v);
 
+            const auto cellDist = std::sqrt(std::pow(u - rx, 2) + std::pow(v - ry, 2)) / scale_;
+
+            const auto cellAngle = normalizeAngleDEG(RAD2DEG(std::atan2(v - ry, u - rx)) - robot.theta);
+
+            const auto nearestLaserBeam = getNearestLaserBeam(cellAngle);
+            const auto laserAngle = getAngleOfLaserBeam(nearestLaserBeam);
+            const auto laserCurrDist = z[nearestLaserBeam];
+
+            const bool isWithinRange = cellDist <= std::min(maxRange, laserCurrDist + distTolerance);
+            const bool isWithinAngle = std::abs(cellAngle - laserAngle) <= angleTolerance;
+
+            if (isWithinRange && isWithinAngle)
+            {
+                const bool isOccupied = std::abs(cellDist - laserCurrDist) < distTolerance;
+                const bool isFree = cellDist <= laserCurrDist;
+
+                auto &gridPoint = gridLaserLogOdds_[i];
+                if(isOccupied)
+                {
+                    gridPoint += logOddsOccupied;
+                }
+                else if (isFree)
+                {
+                    gridPoint += logOddsFree;
+                }
+                
+                const auto prob = getLikelihoodFromLogOdds(gridPoint) * 100;
+                msg_mapLaserLogOdds_.data[i] = prob;
+            }
+
+        }
+    }
 
     return msg_mapLaserLogOdds_;
 }
