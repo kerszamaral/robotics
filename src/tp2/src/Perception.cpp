@@ -219,9 +219,64 @@ nav_msgs::msg::OccupancyGrid& Perception::updateMapSonar(const std::vector<float
     
     // para visualizar corretamente no rviz, sempre atualizar msg_mapSonar_.data[i]
     // importante lembrar de converter o valor de ocupação, probabilidade entre 0 e 1, para OccupancyGrid data (que vai de 0 a 100)
+    
+    const float distTolerance = lambda_r / 2.0;
+    
+    constexpr auto SONAR_BEAM_COUNT = 8;
+    for (int sonarIdx = 0; sonarIdx < SONAR_BEAM_COUNT; sonarIdx++)
+    {
+        const auto sonarAngle = getAngleOfSonarBeam(sonarIdx) + robot.theta;
+        const auto sonarRange = z[sonarIdx];
 
+        for (int i = 0; i < maxRangeInt; i++)
+        {
+            // Equação da reta
+            const auto u = rx + i * std::cos(DEG2RAD(sonarAngle));
+            const auto v = ry + i * std::sin(DEG2RAD(sonarAngle));
 
+            const auto cellIdx = getCellIndexFromXY(u, v);
 
+            const auto cellDist = std::sqrt(std::pow(u - rx, 2) + std::pow(v - ry, 2)) / scale_;
+
+            const bool isWithinRange = cellDist <= std::min(maxRange, sonarRange + distTolerance);
+
+            if (isWithinRange)
+            {
+                const bool isOccupied = std::abs(cellDist - sonarRange) < distTolerance;
+                const bool isFree = cellDist <= sonarRange;
+
+                auto &gridPoint = gridSonar_[cellIdx];
+                if(isOccupied)
+                {
+                    gridPoint = std::min(gridPoint + 3.0, 15.0);
+
+                    // GRO, 3x3 grid update on "impact"
+                    for (int du = -1; du <= 1; du++)
+                    {
+                        for (int dv = -1; dv <= 1; dv++)
+                        {
+                            const auto neighborIdx = getCellIndexFromXY(u + du, v + dv);
+                            if (neighborIdx == cellIdx) // Skip the current cell
+                                continue;
+                            if (neighborIdx < 0 || neighborIdx >= numCellsX_ * numCellsY_) // Out of bounds
+                                continue;
+                            auto &gridNeighbor = gridSonar_[neighborIdx];
+                            gridNeighbor = std::min(gridNeighbor + 1.0, 15.0);
+                            const auto prob = gridNeighbor * 100 / 15.0;
+                            msg_mapSonar_.data[neighborIdx] = prob;
+                        }
+                    }
+                }
+                else if (isFree)
+                {
+                    gridPoint = std::max(gridPoint - 1.0, 0.0);
+                }
+
+                const auto prob = gridPoint * 100 / 15.0;
+                msg_mapSonar_.data[cellIdx] = prob;
+            }
+        }
+    }
 
     return msg_mapSonar_;
 }
