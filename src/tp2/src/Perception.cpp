@@ -154,8 +154,46 @@ nav_msgs::msg::OccupancyGrid& Perception::updateMapLaserWithHIMM(const std::vect
     // para visualizar corretamente no rviz, sempre atualizar msg_mapLaserHIMM_.data[i]
     // importante lembrar de converter o valor, originalmente de 0 a 15, para OccupancyGrid data (que vai de 0 a 100)
 
+    const auto angleTolerance = lambda_phi / 2.0;
+    const float distTolerance = lambda_r / 2.0;
 
+    for (int u = rx - maxRangeInt; u < rx + maxRangeInt; u++)
+    {
+        for (int v = ry - maxRangeInt; v < ry + maxRangeInt; v++)
+        {
+            const auto i = getCellIndexFromXY(u, v);
 
+            const auto cellDist = std::sqrt(std::pow(u - rx, 2) + std::pow(v - ry, 2)) / scale_;
+
+            const auto cellAngle = normalizeAngleDEG(RAD2DEG(std::atan2(v - ry, u - rx)) - robot.theta);
+
+            const auto nearestLaserBeam = getNearestLaserBeam(cellAngle);
+            const auto laserAngle = getAngleOfLaserBeam(nearestLaserBeam);
+            const auto laserCurrDist = z[nearestLaserBeam];
+
+            const bool isWithinRange = cellDist <= std::min(maxRange, laserCurrDist + distTolerance);
+            const bool isWithinAngle = std::abs(cellAngle - laserAngle) <= angleTolerance;
+
+            if (isWithinRange && isWithinAngle)
+            {
+                const bool isOccupied = std::abs(cellDist - laserCurrDist) < distTolerance;
+                const bool isFree = cellDist <= laserCurrDist;
+
+                auto &gridPoint = gridLaserHIMM_[i];
+                if(isOccupied)
+                {
+                    gridPoint = std::min(gridPoint + 3.0, 15.0);
+                }
+                else if (isFree)
+                {
+                    gridPoint = std::max(gridPoint - 1.0, 0.0);
+                }
+
+                const auto prob = gridPoint * 100 / 15.0;
+                msg_mapLaserHIMM_.data[i] = prob;
+            }
+        }
+    }
 
     return msg_mapLaserHIMM_;
 }
