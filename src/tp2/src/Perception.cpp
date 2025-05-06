@@ -5,7 +5,9 @@
 #include <tf2_ros/buffer.h>
 
 #include <cstring>
-
+/* -----------------------------------------
+    * Modified by Ian Kersz Amaral - 00338368 - 2025/1
+   ----------------------------------------- */
 Perception::Perception(float mapWidth, float mapHeight, float cellSize):
     mapWidth_(mapWidth), mapHeight_(mapHeight), scale_(1.0/cellSize)
 {
