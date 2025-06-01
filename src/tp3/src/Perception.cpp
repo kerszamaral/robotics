@@ -258,18 +258,86 @@ void Perception::updateCellsClassification()
     // 3) Marcar fronteiras (ignorando OCC_OCCUPIED e OCC_NEAROBSTACLE)
     // 4) Marcar restantes, que nao sao inexploradas, como livre
 
- 
- 
+    auto saved_map = occupancyTypeGrid_; // Save the original map
+    const auto num_cells_x = numCellsX_;
+    const auto num_cells_y = numCellsY_;
 
+    const auto is_near_obstacle = [&saved_map, num_cells_x, num_cells_y](const u_int x, const u_int y, const int occ_type, const int zoneWidth) -> bool {
+        for (int dx = -zoneWidth; dx <= zoneWidth; ++dx) {
+            for (int dy = -zoneWidth; dy <= zoneWidth; ++dy) {
+                if (dx == 0 && dy == 0) continue; // Skip the cell itself
+                int nx = x + dx;
+                int ny = y + dy;
+                if (nx >= 0 && nx < static_cast<int>(num_cells_x) && ny >= 0 && ny < static_cast<int>(num_cells_y)) {
+                    int neighborIndex = nx + ny * num_cells_x;
+                    if (saved_map[neighborIndex] == occ_type) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
 
+    constexpr int RAW_OCCUPIED_THRESHOLD = 100; // Threshold for occupied cells
+    const auto mark_occupied = [&saved_map, num_cells_x](const u_int x, const u_int y) {
+        const auto cell = x + y * num_cells_x;
+        if (saved_map[cell] >= RAW_OCCUPIED_THRESHOLD)
+        {
+            saved_map[cell] = OCC_OCCUPIED;
+        }
+    };
 
+    const auto mark_free = [&saved_map, num_cells_x](const u_int x, const u_int y) {
+        const auto cell = x + y * num_cells_x;
+        if (saved_map[cell] != OCC_OCCUPIED)
+        {
+            saved_map[cell] = OCC_FREE;
+        }
+    };
 
+    const auto mark_near_obstacle = [&saved_map, num_cells_x, dangerZoneWidth, &is_near_obstacle](const u_int x, const u_int y) {
+        const auto cell = x + y * num_cells_x;
+        if (saved_map[cell] != OCC_OCCUPIED && is_near_obstacle(x, y, OCC_OCCUPIED, dangerZoneWidth))
+        {
+            saved_map[cell] = OCC_NEAROBSTACLE;
+        }
+    };
 
+    constexpr auto NEAR_UNEXPLORED = 1; // Width of the zone to consider for unexplored cells
+    const auto mark_frontier = [&saved_map, num_cells_x, &is_near_obstacle](const u_int x, const u_int y)
+    {
+        const auto cell = x + y * num_cells_x;
+        if (saved_map[cell] == OCC_FREE && is_near_obstacle(x, y, OCC_UNEXPLORED, NEAR_UNEXPLORED))
+        {
+            saved_map[cell] = OCC_FRONTIER;
+        }
+    };
 
+    const auto mark_functions = std::vector<std::function<void(u_int, u_int)>>{
+        mark_occupied,
+        mark_free,
+        mark_near_obstacle,
+        mark_frontier,
+    };
 
+    for (auto mark : mark_functions)
+    {
+        for (u_int x = minKnownX_; x <= maxKnownX_; x++)
+        {
+            for (u_int y = minKnownY_; y <= maxKnownY_; y++)
+            {
+                int i = x + y * num_cells_x;
+                if (saved_map[i] != OCC_UNEXPLORED) // Only process known cells
+                {
+                    mark(x, y);
+                }
+            }
+        }
+    }
 
-
-
+    // Copy the updated map back to the occupancyTypeGrid_
+    occupancyTypeGrid_ = saved_map;
 }
 
 void Perception::computeHeuristic(int goalIndex)
