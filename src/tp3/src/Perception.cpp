@@ -491,9 +491,9 @@ int Perception::computeShortestPathToFrontier(int robotCellIndex)
 // Given the explored area, update the following variables: minKnownX_, maxKnownX_, minKnownY_, maxKnownY_
 void Perception::updateGridKnownLimits()
 {
-    for(int x=0; x<numCellsX_; x++){
-        for(int y=0; y<numCellsY_; y++){
-            int i = x + y*numCellsX_;
+    for(u_int x=0; x<numCellsX_; x++){
+        for(u_int y=0; y<numCellsY_; y++){
+            u_int i = x + y*numCellsX_;
             if(occupancyTypeGrid_[i]!=-1)
             {
                 if(x<minKnownX_) minKnownX_ = x;
@@ -517,9 +517,9 @@ int Perception::clusterFrontiersAndReturnIndexOfClosestOne(int robotCellIndex)
     int minFrontierSize = 3;
 
     // Check occupancyTypeGrid_ and set PLAN_GOALS in planningTypeGrid_
-    for(int x=minKnownX_; x<=maxKnownX_; x++){
-        for(int y=minKnownY_; y<=maxKnownY_; y++){
-            int i = x + y*numCellsX_;
+    for(u_int x=minKnownX_; x<=maxKnownX_; x++){
+        for(u_int y=minKnownY_; y<=maxKnownY_; y++){
+            u_int i = x + y*numCellsX_;
 
             if(occupancyTypeGrid_[i] == OCC_FRONTIER) 
                 planningTypeGrid_[i] = PLAN_GOALS;      // Frontier cells are goals
@@ -531,9 +531,9 @@ int Perception::clusterFrontiersAndReturnIndexOfClosestOne(int robotCellIndex)
     }
 
     // Group all neighboring goal cells
-    for(int x=minKnownX_; x<=maxKnownX_; x++){
-        for(int y=minKnownY_; y<=maxKnownY_; y++){
-            int i = x + y*numCellsX_;
+    for(u_int x=minKnownX_; x<=maxKnownX_; x++){
+        for(u_int y=minKnownY_; y<=maxKnownY_; y++){
+            u_int i = x + y*numCellsX_;
 
             // detect a goal cell that is not MARKED yet
             if(planningTypeGrid_[i] == PLAN_GOALS){
@@ -621,7 +621,7 @@ int Perception::clusterFrontiersAndReturnIndexOfClosestOne(int robotCellIndex)
 
         int rx = robotCellIndex % numCellsX_;
         int ry = robotCellIndex / numCellsX_;
-        for(int k=0;k<frontierCentersIndices.size();k++){
+        for(size_t k=0;k<frontierCentersIndices.size();k++){
             int nFx = frontierCentersIndices[k] % numCellsX_;
             int nFy = frontierCentersIndices[k] / numCellsX_;
             float d = sqrt(pow(rx-nFx,2.0)+pow(ry-nFy,2.0));
@@ -633,7 +633,7 @@ int Perception::clusterFrontiersAndReturnIndexOfClosestOne(int robotCellIndex)
         }
 
         // Clear frontiers that were not selected
-        for(int k=0;k<frontierCentersIndices.size();k++){
+        for(size_t k=0;k<frontierCentersIndices.size();k++){
             if(frontierCentersIndices[k] != nearestFrontierIndex)
                 planningTypeGrid_[frontierCentersIndices[k]] = PLAN_MARKEDGOALS;
         }
