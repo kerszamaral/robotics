@@ -27,11 +27,21 @@ void Action::followDirection(double angle)
     /// fazer robô girar sobre o proprio eixo
 
     /// usar valores maximos baixos em linVel (ex: 0.2) e angVel (ex: 0.3)
+    constexpr float maxLinVel = 0.2;
+    constexpr float maxAngVel = 0.3;
+    // Received angle is the difference from the robot orientation to the desired direction
+    constexpr float highAngleThreshold = 90.0;
 
-
-
-
-
+    if (std::abs(angle) > highAngleThreshold)
+    {
+        angVel = (angle > 0) ? maxAngVel : -maxAngVel; // Rotate in place
+        linVel = 0.0;
+    }
+    else
+    {
+        angVel = angle * maxAngVel / highAngleThreshold; // Proportional control
+        linVel = maxLinVel * (1.0 - std::abs(angle) / highAngleThreshold); // Reduce linear speed with angle
+    }
 
 }
 
