@@ -361,18 +361,26 @@ void Perception::computeHeuristic(int goalIndex)
     ///   parentGrid_[i] - valor pi (indicando o pai da celula): recebe -1, pois a priori nao aponta para ninguem. 
     ///   hValueGrid_[i] - valor h - distancia para o goal
 
- 
- 
+    const auto heuristic = [goalX, goalY](u_int x, u_int y) {
+        const double dx = static_cast<double>(x - goalX);
+        const double dy = static_cast<double>(y - goalY);
+        return sqrt(dx * dx + dy * dy); // Euclidean distance
+    };
 
-
-
-
-
-
-
-
-
-
+    for (u_int x = minKnownX_; x <= maxKnownX_; x++)
+    {
+        for (u_int y = minKnownY_; y <= maxKnownY_; y++)
+        {
+            int i = x + y * numCellsX_;
+            if (planningTypeGrid_[i] != PLAN_INVALID)
+            {
+                fValueGrid_[i] = DBL_MAX;
+                gValueGrid_[i] = DBL_MAX;
+                parentGrid_[i] = -1;
+                hValueGrid_[i] = heuristic(x, y);
+            }
+        }
+    }
 }
 
 // offset para os 8 vizinhos
