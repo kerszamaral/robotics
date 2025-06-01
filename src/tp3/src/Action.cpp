@@ -30,7 +30,7 @@ void Action::followDirection(double angle)
     constexpr float maxLinVel = 0.2;
     constexpr float maxAngVel = 0.3;
     // Received angle is the difference from the robot orientation to the desired direction
-    constexpr float highAngleThreshold = 90.0;
+    constexpr float highAngleThreshold = 50.0;
 
     if (std::abs(angle) > highAngleThreshold)
     {
