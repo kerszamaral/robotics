@@ -398,8 +398,8 @@ double cost[8] = {sqrt(2), 1, sqrt(2), 1, sqrt(2), 1, sqrt(2), 1};
 
 int Perception::computeShortestPathToFrontier(int robotCellIndex)
 {
-    int rx = robotCellIndex % numCellsX_;
-    int ry = robotCellIndex / numCellsX_;
+    [[maybe_unused]] u_int rx = robotCellIndex % numCellsX_;
+    [[maybe_unused]] u_int ry = robotCellIndex / numCellsX_;
 
     /// TODO:
     /// Computar o algoritmo A Star usando os valores em hValueGrid_ 
@@ -435,22 +435,51 @@ int Perception::computeShortestPathToFrontier(int robotCellIndex)
     /// Completar algoritmo A Star, consultando a fila enquanto ela nao estiver vazia
     ///     while(!pq.empty())
 
- 
- 
+    while (!pq.empty())
+    {
+        const auto top = pq.top();
+        pq.pop();
 
+        const auto curr_idx = top.second;
 
+        if (planningTypeGrid_[curr_idx] == PLAN_GOALS)
+        {
+            // Encontrou o goal
+            goal = curr_idx;
+            break;
+        }
 
+        u_int curr_x = curr_idx % numCellsX_;
+        u_int curr_y = curr_idx / numCellsX_;
 
+        for (int k = 0; k < 8; k++)
+        {
+            u_int nx = curr_x + offset[k][0];
+            u_int ny = curr_y + offset[k][1];
+            u_int neighbor_idx = nx + ny * numCellsX_;
 
+            // Verifica se o vizinho e valido
+            if (nx < minKnownX_ || nx > maxKnownX_ || ny < minKnownY_ || ny > maxKnownY_ || planningTypeGrid_[neighbor_idx] == PLAN_INVALID)
+                continue;
 
+            // Calcula o custo g do vizinho
+            double tentative_g = gValueGrid_[curr_idx] + cost[k];
 
+            // Se o custo g for melhor, atualiza os valores
+            if (tentative_g < gValueGrid_[neighbor_idx])
+            {
+                gValueGrid_[neighbor_idx] = tentative_g;
+                fValueGrid_[neighbor_idx] = tentative_g + hValueGrid_[neighbor_idx];
+                parentGrid_[neighbor_idx] = curr_idx;
 
-
-
-
-
-
-
+                // Adiciona o vizinho na fila de prioridades
+                std::pair<double, int> vizinho;
+                vizinho.first = fValueGrid_[neighbor_idx];
+                vizinho.second = neighbor_idx;
+                pq.push(vizinho);
+            }
+        }
+    }
 
     return goal;
 }
