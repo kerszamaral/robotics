@@ -43,12 +43,26 @@ void Perception::MCL_sampling(const Action &u)
     // particles_[i].p.x
     // particles_[i].p.y
     // particles_[i].p.theta
+    constexpr auto uncertainty = 0.1; // Uncertainty for the model
+    const auto &rot1 = u.rot1;
+    const auto &trans = u.trans;
+    const auto &rot2 = u.rot2;
+    std::normal_distribution<double> samplerRot1(rot1, uncertainty);
+    std::normal_distribution<double> samplerTrans(trans, uncertainty);
+    std::normal_distribution<double> samplerRot2(rot2, uncertainty);
 
+    for(int i = 0; i < numParticles_; i++)
+    {
+        // Sample the motion model
+        const auto sampled_rot1 = samplerRot1(*generator_);
+        const auto sampled_trans = samplerTrans(*generator_);
+        const auto sampled_rot2 = samplerRot2(*generator_);
 
-
-
-
-
+        // Update particle pose
+        particles_[i].p.x += sampled_trans * cos(particles_[i].p.theta + sampled_rot1);
+        particles_[i].p.y += sampled_trans * sin(particles_[i].p.theta + sampled_rot1);
+        particles_[i].p.theta += sampled_rot1 + sampled_rot2;
+    }
 }
 
 void Perception::MCL_weighting(const std::vector<float> &z)
