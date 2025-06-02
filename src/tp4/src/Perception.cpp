@@ -121,6 +121,7 @@ void Perception::MCL_resampling()
 {
     // gere uma nova geração de particulas com o mesmo tamanho do conjunto atual
     std::vector<Particle> nextGeneration;
+    nextGeneration.reserve(numParticles_);
 
     /// TODO: Implemente o Low Variance Resampling
 
@@ -129,14 +130,25 @@ void Perception::MCL_resampling()
     /// Para gerar amostras segundo a distribuicao acima, usa-se:
     // double amostra = samplerU(*generator_)
     /// onde *generator_ é um gerador de numeros aleatorios (definido no construtor da classe)
+    const auto start_offset = 1.0 / static_cast<double>(numParticles_);
+    std::uniform_real_distribution<double> selection_threshold_sampler(0.0, start_offset);
+    const auto sample = selection_threshold_sampler(*generator_);
+    double cumulative_weight = 0.0;
+    int curr_particle = 0;
 
+    for (int new_particle_idx = 0; new_particle_idx < numParticles_; new_particle_idx++)
+    {
+        const double selection_threshold = sample + new_particle_idx*start_offset;
+        while (selection_threshold > cumulative_weight && curr_particle < numParticles_ - 1)
+        {
+            cumulative_weight += particles_[curr_particle].w;
+            ++curr_particle;
+        }
 
+        nextGeneration.push_back(particles_[curr_particle]);
+    }
 
-
-
-
-
-
+    particles_ = nextGeneration;
 }
 
 /////////////////////////////////////////////////////////////////////////////
