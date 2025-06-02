@@ -254,7 +254,7 @@ void Perception::updateCellsClassification()
     // Dica
     // 1) Marcar obstaculos
     // 2) Marcar celulas vizinhas a obstaculos considerando 'dangerZoneWidth' celulas
-    int dangerZoneWidth = 5;
+    int dangerZoneWidth = 5; // 5 for the parse map, 4 for the dense map
     // 3) Marcar fronteiras (ignorando OCC_OCCUPIED e OCC_NEAROBSTACLE)
     // 4) Marcar restantes, que nao sao inexploradas, como livre
 
