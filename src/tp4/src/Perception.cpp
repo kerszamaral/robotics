@@ -81,12 +81,40 @@ void Perception::MCL_weighting(const std::vector<float> &z)
     //       para achar a k-th observacao esperada da particula i
     ///    ao fim, normalize os pesos
 
+    constexpr double variance = 5; // Variance for the model
+    constexpr double scale_factor = 1.0 / (std::sqrt(2.0 * M_PI * variance));
+    constexpr double exponent = -0.5 / variance;
+    constexpr size_t jump_size = 10; // Jump size for the laser scan
 
+    double total_weight = 0.0;
+    for(int i = 0; i < numParticles_; i++)
+    {
+        unsigned int ix = particles_[i].p.x * scale_;
+        unsigned int iy = particles_[i].p.y * scale_;
+        unsigned int index = ix + iy * numCellsX_;
 
+        // Check if the particle is in a free space
+        if(gridMap_.data[index] != 0) {
+            particles_[i].w = 0.0; // Particle is not in free space
+            continue;
+        }
 
+        // Calculate the weight based on expected measurements
+        double weight = 1.0;
+        for(size_t k = 0; k < z.size(); k += jump_size) {
+            double expected_measurement = computeExpectedMeasurement(k, particles_[i].p);
+            double diff = z[k] - expected_measurement;
+            weight *= scale_factor * std::exp(exponent * (diff * diff));
+        }
 
+        particles_[i].w = weight;
+        total_weight += weight;
+    }
 
-
+    // Normalize the weights
+    for(int i = 0; i < numParticles_; i++) {
+        particles_[i].w /= total_weight;
+    }
 }
 
 void Perception::MCL_resampling()
