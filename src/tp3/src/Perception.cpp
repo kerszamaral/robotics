@@ -5,6 +5,10 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+/* -----------------------------------------
+    * Modified by Ian Kersz Amaral - 00338368 - 2025/1
+   ----------------------------------------- */
+
 /////////////////////////////////////
 /// CONSTRUTOR e FUNCOES PUBLICAS ///
 /////////////////////////////////////
