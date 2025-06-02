@@ -6,6 +6,10 @@
 #include <algorithm>
 #include <chrono>
 
+/* -----------------------------------------
+    * Modified by Ian Kersz Amaral - 00338368 - 2025/1
+   ----------------------------------------- */
+
 Perception::Perception()
 {
     receivedMap_ = false;
